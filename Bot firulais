@@ -1,1 +1,201 @@
 
+require("dotenv").config();
+
+const express = require("express");
+const crypto = require("crypto");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+const {
+  WHATSAPP_TOKEN,
+  PHONE_NUMBER_ID,
+  VERIFY_TOKEN,
+  APP_SECRET,
+  GRAPH_API_VERSION
+} = process.env;
+
+app.get("/", (req, res) => {
+  res.send("🐶 Bot Firulais está funcionando");
+});
+
+// Verificación del webhook de Meta
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    return res.status(200).send(challenge);
+  }
+
+  res.sendStatus(403);
+});
+
+// Recibir mensajes de WhatsApp
+app.post(
+  "/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+
+    const signature = req.get("x-hub-signature-256");
+
+    if (!signature || !APP_SECRET) {
+      return res.sendStatus(401);
+    }
+
+    const expected =
+      "sha256=" +
+      crypto
+        .createHmac("sha256", APP_SECRET)
+        .update(req.body)
+        .digest("hex");
+
+    const a = Buffer.from(signature);
+    const b = Buffer.from(expected);
+
+    if (a.length !== b.length ||
+        !crypto.timingSafeEqual(a, b)) {
+      return res.sendStatus(401);
+    }
+
+    let body;
+
+    try {
+      body = JSON.parse(req.body.toString());
+    } catch {
+      return res.sendStatus(400);
+    }
+
+    res.sendStatus(200);
+
+    try {
+      const messages =
+        body.entry?.[0]?.changes?.[0]?.value?.messages || [];
+
+      for (const message of messages) {
+        if (message.type !== "text") continue;
+
+        const from = message.from;
+        const text = message.text?.body?.trim().toLowerCase();
+
+        if (!text) continue;
+
+        let reply = "";
+
+        switch (text) {
+          case "!menu":
+          case "menu":
+            reply =
+              "🐶 BOT FIRULAIS\n\n" +
+              "🐾 !menu - Ver comandos\n" +
+              "🐾 !ping - Estado del bot\n" +
+              "🐾 !info - Información\n" +
+              "🐾 !hora - Hora del servidor\n" +
+              "🐾 !dado - Lanzar un dado\n" +
+              "🐾 !chiste - Un chiste";
+            break;
+
+          case "!ping":
+            reply = "🏓 ¡Pong! Bot Firulais está activo.";
+            break;
+
+          case "!info":
+            reply =
+              "🐶 Soy Bot Firulais.\n" +
+              "Un bot creado con WhatsApp Cloud API.";
+            break;
+
+          case "!hora":
+            reply =
+              "🕒 Hora: " +
+              new Date().toLocaleTimeString("es-GT", {
+                timeZone: "America/Guatemala"
+              });
+            break;
+
+          case "!dado":
+            reply =
+              "🎲 Resultado: " +
+              (Math.floor(Math.random() * 6) + 1);
+            break;
+
+          case "!chiste":
+            reply =
+              "🐶 ¿Qué hace un perro con un taladro?\n" +
+              "¡Taladrando!";
+            break;
+
+          default:
+            reply =
+              "🐾 No conozco ese comando.\n" +
+              "Escribe !menu para ver mis comandos.";
+        }
+
+        await sendMessage(from, reply);
+      }
+    } catch (error) {
+      console.error("Error procesando mensaje:", error);
+    }
+  }
+);
+
+// Enviar respuesta mediante la API oficial
+async function sendMessage(to, message) {
+  const url =
+    `https://graph.facebook.com/${GRAPH_API_VERSION}/` +
+    `${PHONE_NUMBER_ID}/messages`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "text",
+      text: {
+        body: message
+      }
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error("Error de WhatsApp:", data);
+  }
+}
+
+app.listen(PORT, () => {
+  console.log(`🐶 Bot Firulais activo en puerto ${PORT}`);
+});
+process.env.PORTapp.postmessage.text?.body?.trim().toLowerCase();b.lengthhttps://graph.facebook.com/${GRAPH_API_VERSION
+
+
+{
+  "name": "bot-firulais",
+  "version": "1.0.0",
+  "description": "Bot de WhatsApp oficial",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "dotenv": "^16.4.7"
+  }
+}
+
+WHATSAPP_TOKEN=TU_TOKEN_DE_META
+PHONE_NUMBER_ID=TU_ID_DEL_NUMERO
+VERIFY_TOKEN=FIRULAIS_TOKEN_SECRETO_2026
+APP_SECRET=TU_APP_SECRET
+GRAPH_API_VERSION=vXX.X
+
+node_modules/
+.env
+.DS_Store
